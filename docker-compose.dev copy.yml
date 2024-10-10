@@ -1,0 +1,65 @@
+name: mern-auth
+
+services:
+  mongo:
+    image: mongo:7.0.12
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - 27017:27017
+    networks:
+      - mern-auth
+
+  api:
+    build:
+      context: ./server
+      target: development
+    restart: unless-stopped
+    env_file: ./server/.env
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    networks:
+      - mern-auth
+    depends_on:
+      - mongo
+
+  client:
+    build:
+      context: ./client
+      target: development
+      args: VITE_API_URL:https://api.auth.localhost
+    restart: unless-stopped
+    env_file: ./client/.env
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    networks:
+      - mern-auth
+    command: npm run dev -- --host
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - mern-auth
+    depends_on:
+      - api
+      - client
+
+volumes:
+  mongo_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  mern-auth:
+    driver: bridge
